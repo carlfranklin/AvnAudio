@@ -4,12 +4,12 @@
 
 <PageTitle>Index</PageTitle>
 
-<h1>Audio Devices</h1>
+<h1>Audio Recorder</h1>
 
 <AudioRecorder @ref="audioRecorder"
                SampleRate=@SampleRate
                Channels=@Channels
-               TimeSlice=1000
+               TimeSlice=@TimeSlice
                BufferRecorded="AudioBufferRecorded"
                RecordingStarted="RecordingStarted"
                RecordingStopped="RecordingStopped"
@@ -33,39 +33,43 @@
 </select>
 
 @code {
-    int Channels = 1;           // set to 2 to record in stereo
+    int Channels = 1;           // 1=mono, 2=stereo
     int SampleRate = 44100;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
+    int TimeSlice = 1000;       // time in ms between each buffer
+
+    // Reference to the component
     AudioRecorder audioRecorder { get; set; }
+
+    // We need to have a local list of BrowserMediaDevice to provide as a parameter
     List<BrowserMediaDevice> AudioInputDevices { get; set; } = new List<BrowserMediaDevice>();
-    string Status = string.Empty;
-    bool RecordButtonDisabled = true;
-    bool StopRecordButtonDisabled = true;
-    string SelectedInputDeviceId = null;
-    HubConnection hubConnection;
-    BufferPosition bufferPosition;
-    string fileName = string.Empty;
-    long bytesRecorded = 0;
-    string webmHeader = string.Empty;
+
+    string Status = string.Empty;           // Displayed in the UI
+    bool RecordButtonDisabled = true;       // for enabling/disabling the record button
+    bool StopRecordButtonDisabled = true;   // for enabling/disabling the stop button
+    string SelectedInputDeviceId = null;    // id of the selected recording device
+    HubConnection hubConnection;            // SignalR Hub Connection
+    BufferPosition bufferPosition;          // First, last, or middle
+    string fileName = string.Empty;         // Unique .webm file name for saving on the server
+    long bytesRecorded = 0;                 // We keep track of total bytes recorded
 
     protected override async Task OnInitializedAsync()
     {
+        // Initialize the SignalR hub Connection
         var url = $"{httpClient.BaseAddress}processaudio";
-
         hubConnection = new HubConnectionBuilder()
             .WithUrl(url)
             .Build();
-
         await CheckConnection();
     }
 
+    // Starts the connection if it isn't connected
     private async Task CheckConnection()
     {
         if (hubConnection.State != HubConnectionState.Connected)
-        {
             await hubConnection.StartAsync();
-        }
     }
 
+    // Stop button clicked
     async Task StopRecording()
     {
         bufferPosition = BufferPosition.Last;
@@ -74,10 +78,14 @@
         StopRecordButtonDisabled = true;
     }
 
+    // Occurs when a new buffer arrives
     async Task AudioBufferRecorded(AudioBuffer buffer)
     {
+        // Update the Status
         bytesRecorded += buffer.Data.Length;
         Status = $"Recording. {bytesRecorded} bytes total.";
+
+        // Make sure we can communicate with the SignalR hub
         await CheckConnection();
 
         // use ProcessAudioFileBuffer to upload buffers.
@@ -91,21 +99,25 @@
         // And write them to a PCM file in the Files folder.
         await hubConnection.SendAsync("ProcessAudioBuffer", buffer.BufferString, bufferPosition, SampleRate, Channels);
         
+        // Make sure the position is now Middle
         if(bufferPosition == BufferPosition.First)
             bufferPosition = BufferPosition.Middle;
     }
 
+    // Occurs when recording starts
     void RecordingStarted()
     {
         // You can do something here to indicate recording started
     }
 
+    // Occurs when recording stops
     void RecordingStopped()
     {
         // You can do something here to indicate recording stopped
         Status = "Recording Stopped";
     }
 
+    // Returns a new .webm filename from the current date and time
     private string NewFileName()
     {
         var dt = DateTime.Now;
@@ -113,27 +125,41 @@
         return filename;
     }
 
+    // The Record button was clicked
     async Task StartRecording()
     {
-        bytesRecorded = 0;
-        fileName = NewFileName();
+        // Initialize
+        bytesRecorded = 0; 
         bufferPosition = BufferPosition.First;
+
+        // Get a new filename
+        fileName = NewFileName();
+
+        // Tell the AudioRecorder component to start recording
         await audioRecorder.StartRecording(SelectedInputDeviceId);
+
+        // Enable/disable buttons
         RecordButtonDisabled = true;
         StopRecordButtonDisabled = false;
     }
 
+    // Occurs when the user selects an input device
     void InputDeviceSelected(ChangeEventArgs args)
     {
+        // Set the selected input device id
         SelectedInputDeviceId = args.Value.ToString();
+        // Enable the record button
         RecordButtonDisabled = false;
     }
 
+    // The user has clicked the Enumerate Devices button
     async Task EnumerateDevices()
     {
+        // tell the AudioRecorder component to enumerate devices
         await audioRecorder.EnumerateDevices();
     }
 
+    // Occurs when the audio status has changed
     void AudioStatusChanged(string status)
     {
         Status = status;

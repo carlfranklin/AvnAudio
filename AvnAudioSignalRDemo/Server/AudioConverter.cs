@@ -3,43 +3,56 @@ using System.Diagnostics;
 
 namespace AvnAudioSignalRDemo.Server;
 
+/// <summary>
+/// Background process that converts WebM audio data to PCM audio data
+/// and writes them to a specified .PCM file
+/// </summary>
 public class AudioConverter
 {
+    // Thread-safe queue for storing WebM audio buffers
     private ConcurrentQueue<byte[]> InputBuffers = new ConcurrentQueue<byte[]>();
-    private bool Working = false;
-    private bool Done = false;
-    private int SampleRate;
-    private int Channels;
-    private bool firstBuffer = true;
-    private string FileName = string.Empty;
+    private bool Working = false;   // Whether or not the background process is running
+    private bool Done = false;      // Flag set when the background process is done
+    private int SampleRate;         // Sample Rate for conversion
+    private int Channels;           // Channels for conversion
+    private bool firstBuffer = true;  // Flag used to modify data with WebM header
+    private string FileName = string.Empty; // PCM File name to write data to
+    private byte[] WebHeader { get; set; }  // See AddBuffer
 
-    public byte[] WebHeader { get; set; }
-
+    /// <summary>
+    /// Clears the input buffer queue.
+    /// Should be called before the first buffer is added
+    /// </summary>
     public void ClearQueue()
     {
         firstBuffer = true;
         InputBuffers.Clear();
     }
 
+    /// <summary>
+    /// Called by SignalR hub to add a buffer to the input queue
+    /// </summary>
+    /// <param name="buffer"></param>
     public void AddBuffer(byte[] buffer)
     {
         if (firstBuffer)
         {
             firstBuffer = false;
-            // first buffer. Grab the header
-            var mem = new MemoryStream();
-            // This is a magic number.
+            // first buffer. Save the WebM header
+
+            // 162 is a magic number.
             // The first 162 bytes of the first buffer
-            //  are the webm header, that must be
+            //  are the WebM header, that must be
             //  prepended to every buffer in order
             //  for FFMPEG to convert it properly
+            var mem = new MemoryStream();
             mem.Write(buffer, 0, 162);
             WebHeader = mem.ToArray();
             mem.Dispose();
         }
         else
         {
-            // Add the webm header to the buffer
+            // Add the WebM header to the buffer
             var mem = new MemoryStream();
             mem.Write(WebHeader);
             mem.Write(buffer);
@@ -50,27 +63,39 @@ public class AudioConverter
         InputBuffers.Enqueue(buffer);
     }
 
+    /// <summary>
+    /// Alternative to using this service to convert buffers
+    /// in the background and write them to a file.
+    /// This does an immediate conversion and returns the buffer.
+    /// </summary>
+    /// <param name="buffer">WebM audio data</param>
+    /// <param name="SampleRate">Sample rate for converting</param>
+    /// <param name="Channels">Number of channels for converting</param>
+    /// <param name="position">First, last, or middle</param>
+    /// <returns></returns>
     public byte[] ConvertWebMBufferToPCM(byte[] buffer, int SampleRate, int Channels, BufferPosition position)
     {
+        // Save the Sample rate and channels
         this.SampleRate = SampleRate;
         this.Channels = Channels;
 
         if (position == BufferPosition.First)
         {
             // first buffer. Grab the header
-            var mem = new MemoryStream();
-            // This is a magic number.
+
+            // 162 is a magic number.
             // The first 162 bytes of the first buffer
-            //  are the webm header, that must be
+            //  are the WebM header, that must be
             //  prepended to every buffer in order
             //  for FFMPEG to convert it properly
+            var mem = new MemoryStream();
             mem.Write(buffer, 0, 162);
             WebHeader = mem.ToArray();
             mem.Dispose();
         }
         else
         {
-            // Add the webm header to the buffer
+            // Add the WebM header to the buffer
             var mem = new MemoryStream();
             mem.Write(WebHeader);
             mem.Write(buffer);
@@ -78,45 +103,83 @@ public class AudioConverter
             mem.Dispose();
         }
         
+        // Convert and return
         return ConvertWebmToPcm(buffer);
     }
 
+    /// <summary>
+    /// Called by SignalR hub to stop processing
+    /// and writing to the PCM file
+    /// </summary>
+    /// <returns></returns>
     public async Task StopProcessing()
     {
+        // This signals to the background thread
+        // to exit the processing loop and set
+        // the Done flag to true.
         Working = false;
+
+        // Wait for the Done flag to be set
         while(!Done)
         {
             await Task.Delay(200);
         }
     }
 
+    /// <summary>
+    /// Starts the process of converting the data from the input queue
+    /// and writing the PCM data to the specified file
+    /// </summary>
+    /// <param name="fileName">The PCM file name to write to</param>
+    /// <param name="sampleRate">The Sample Rate for processing</param>
+    /// <param name="channels">Number of channels for processing</param>
     public void StartProcessing(string fileName, int sampleRate, int channels)
     {
-        SampleRate = sampleRate;
-        Channels = channels;
-        FileName = fileName;
-        if (File.Exists(FileName))
-            File.Delete(FileName);
-
+        // We should not already be working.
         if (!Working)
         {
+            // Save these values
+            SampleRate = sampleRate;
+            Channels = channels;
+            FileName = fileName;
+
+            // Delete file if it exists
+            if (File.Exists(FileName))
+                File.Delete(FileName);
+
+            // Create a new thread for the DoWork() method
             var WorkingThread = new Thread(new ThreadStart(DoWork));
+            // Start it up!
             WorkingThread.Start();
         }
     }
 
+    /// <summary>
+    /// Processes the input queue on a background thread
+    /// </summary>
     private void DoWork()
     {
-        Working = true;
-        Done = false;
+        Working = true;     // Let em know we're working here!
+        Done = false;       // Not done until it's done!
+
+        // loop it
         while (Working)
         {
+            // Do we have an input buffer?
             if (InputBuffers.Count > 0)
             {
+                // Remove the next one from the queue
                 if (InputBuffers.TryDequeue(out var inputBuffer))
                 {
+                    // Convert the buffer
                     var outputBuffer = ConvertWebmToPcm(inputBuffer);
-                    int NumberOfRetries = 4;
+
+                    // Retry loop to write buffer to file,
+                    // in case of IO exceptions (can not access
+                    // file because it is being used by another
+                    // process.
+                    int NumberOfRetries = 4;    // arbitrary
+
                     for (int i = 1; i <= NumberOfRetries; ++i)
                     {
                         try
@@ -127,6 +190,7 @@ public class AudioConverter
                                 stream.Write(outputBuffer);
                                 stream.Flush();
                             }
+                            // Success. 
                             break; 
                         }
                         catch (IOException e) when (i <= NumberOfRetries)
@@ -136,11 +200,19 @@ public class AudioConverter
                     }
                 }
             }
+            // Wait 100ms before looking for the next buffer
             Thread.Sleep(100);
         }
+        // We are done!
         Done = true;
     }
 
+    /// <summary>
+    /// Calls FFMPEG (see FFMPEG.txt) to convert the buffer
+    /// using standard input and standard output
+    /// </summary>
+    /// <param name="webmData">WebM audio buffer</param>
+    /// <returns></returns>
     private byte[] ConvertWebmToPcm(byte[] webmData)
     {
         // Set up the FFMPEG process
@@ -175,12 +247,21 @@ public class AudioConverter
 
         // Wait for the FFMPEG process to exit
         ffmpegProcess.WaitForExit();
+
+        // Clean up
         ffmpegProcess.Close();
         ffmpegProcess.Dispose();
         
         return pcmData;
     }
 
+    /// <summary>
+    /// Calls FFMPEG (see FFMPEG.txt) to convert a WebM file
+    /// to another format, WAV in this case.
+    /// </summary>
+    /// <param name="inputFile"></param>
+    /// <param name="outputFile"></param>
+    /// <param name="sampleRate"></param>
     public void ConvertFile(string inputFile, string outputFile, int sampleRate)
     {
         // Create a process to convert webm to wav
@@ -198,6 +279,7 @@ public class AudioConverter
         p.StandardInput.WriteLine("q\n");
         p.Close();
 
+        // Delete the input file
         File.Delete(inputFile);
     }
 }

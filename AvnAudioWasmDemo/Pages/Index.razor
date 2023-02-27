@@ -1,14 +1,14 @@
 ﻿@page "/"
 @inject IBlazorFileSaver BlazorFileSaver
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Audio Recorder Wasm Demo</PageTitle>
 
-<h1>Audio Devices</h1>
+<h1>Audio Recorder</h1>
 
 <AudioRecorder @ref="audioRecorder"
                SampleRate=@SampleRate
                Channels=@Channels
-               TimeSlice=500
+               TimeSlice=@TimeSlice
                BufferRecorded="AudioBufferRecorded"
                RecordingStarted="RecordingStarted"
                RecordingStopped="RecordingStopped"
@@ -32,19 +32,27 @@
 </select>
 
 @code {
-    int Channels = 1;
-    int SampleRate = 16000;
-    AudioRecorder audioRecorder { get; set; }
-    List<BrowserMediaDevice> AudioInputDevices { get; set; } = new List<BrowserMediaDevice>();
-    string Status = string.Empty;
-    bool RecordButtonDisabled = true;
-    bool StopRecordButtonDisabled = true;
-    string SelectedInputDeviceId = null;
-    string WavFileName = string.Empty;
-    bool firstBuffer = true;
-    Stream WaveFileStream;
-    long BytesRecorded = 0;
+    // Change these values to play around with 
+    // audio settings
+    int Channels = 1;           // 1=mono, 2=stereo
+    int SampleRate = 44100;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
+    int TimeSlice = 1000;       // time in ms between each buffer
 
+    // Reference to the component
+    AudioRecorder audioRecorder { get; set; }
+
+    // We need to have a local list of BrowserMediaDevice to provide as a parameter
+    List<BrowserMediaDevice> AudioInputDevices { get; set; } = new List<BrowserMediaDevice>();
+    
+    string Status = string.Empty;           // Displayed in the UI
+    bool RecordButtonDisabled = true;       // for enabling/disabling the record button
+    bool StopRecordButtonDisabled = true;   // for enabling/disabling the stop button
+    string SelectedInputDeviceId = null;    // id of the selected recording device
+    string WebMFileName = string.Empty;      // Name of the .webm file to save to
+    Stream WebMFileStream;                  // Stream for writing to the .webm file
+    long BytesRecorded = 0;                 // We keep track of total bytes recorded
+
+    // Stop button clicked
     async Task StopRecording()
     {
         await audioRecorder.StopRecording();
@@ -53,60 +61,75 @@
         StopRecordButtonDisabled = true;
     }
 
+    // Occurs when a new buffer arrives
     void AudioBufferRecorded(AudioBuffer buffer)
     {
-        if (WaveFileStream.CanWrite)
+        if (WebMFileStream.CanWrite)
         {
-            WaveFileStream.Write(buffer.Data, 0, buffer.Data.Length);
+            // Write the data to the file
+            WebMFileStream.Write(buffer.Data, 0, buffer.Data.Length);
             BytesRecorded += buffer.Data.Length;
+            // Update the status
             Status = $"Received {buffer.Data.Length} bytes at {DateTime.Now.ToLongTimeString()}";
         }
     }
 
+    // Occurs when recording starts
     void RecordingStarted()
     {
         // You can do something here to indicate recording
     }
 
+    // Occurs when the recording stops
     async Task RecordingStopped()
     {
-        WaveFileStream.Close();
-        var bytes = File.ReadAllBytes(WavFileName);
-        var memoryStream = new MemoryStream();
-        //audioRecorder.WriteWavHeader(memoryStream, false, Convert.ToUInt16(Channels), 16, SampleRate, bytes.Length / 2);
-        memoryStream.Write(bytes);
-        var wavBytes = memoryStream.ToArray();
-        await BlazorFileSaver.SaveAsBase64("Recorded.webm", Convert.ToBase64String(wavBytes), "audio/webm");
+        Status = "Recording Stopped";
+        // Close the file
+        WebMFileStream.Close();
+        // read the data 
+        var bytes = File.ReadAllBytes(WebMFileName);
+        // save the file, and it downloads automatically.
+        await BlazorFileSaver.SaveAsBase64("Recorded.webm", Convert.ToBase64String(bytes), "audio/webm");
     }
 
+    // The Record button was clicked
     async Task StartRecording()
     {
-        BytesRecorded = 0;
-        firstBuffer = true;
-        WavFileName = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\temp.pcm";
-        if (File.Exists(WavFileName))
-        {
-            File.Delete(WavFileName);
-        }
-        WaveFileStream = File.OpenWrite(WavFileName);
+        BytesRecorded = 0;  // initialize
 
+        // Create a temp file
+        WebMFileName = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\temp.webm";
+        if (File.Exists(WebMFileName))
+            File.Delete(WebMFileName);
+        
+        // Open it for writing
+        WebMFileStream = File.OpenWrite(WebMFileName);
+
+        // Tell the AudioRecorder component to start recording
         await audioRecorder.StartRecording(SelectedInputDeviceId);
-
+        
+        // Enable/disable buttons
         RecordButtonDisabled = true;
         StopRecordButtonDisabled = false;
     }
 
+    // Occurs when the user selects an input device
     void InputDeviceSelected(ChangeEventArgs args)
     {
+        // Set the selected input device id
         SelectedInputDeviceId = args.Value.ToString();
+        // Enable the record button
         RecordButtonDisabled = false;
     }
 
+    // The user has clicked the Enumerate Devices button
     async Task EnumerateDevices()
     {
+        // tell the AudioRecorder component to enumerate devices
         await audioRecorder.EnumerateDevices();
     }
 
+    // Occurs when the audio status has changed
     void AudioStatusChanged(string status)
     {
         Status = status;

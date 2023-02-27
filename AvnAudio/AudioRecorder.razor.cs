@@ -6,11 +6,11 @@ using System.Text;
 namespace AvnAudio;
 public partial class AudioRecorder : ComponentBase
 {
+    /// <summary>
+    /// Required to access JavaScript functions
+    /// </summary>
     [Inject]
     public AvnAudioInterop avnAudioInterop { get; set; }
-
-    [Inject]
-    public IJSRuntime JSRuntime { get; set; }
 
     /// <summary>
     /// Changes as recording progreses.
@@ -74,9 +74,13 @@ public partial class AudioRecorder : ComponentBase
     public bool Recording { get; set; } = false;
 
     // Privates
-    DotNetObjectReference<AudioRecorder> myObjectReference;
-    bool firstBuffer = true;
-    
+
+    /// <summary>
+    /// A reference to this component.
+    /// It's passed to JavaScript so we can be called back.
+    /// </summary>
+    private DotNetObjectReference<AudioRecorder> myObjectReference;
+
     /// <summary>
     /// Start the recording process passing in a deviceId.
     /// Call EnumerateDevices to get a list of devices and their deviceIds.
@@ -85,9 +89,7 @@ public partial class AudioRecorder : ComponentBase
     /// <returns></returns>
     public async Task StartRecording(string deviceId)
     {
-        firstBuffer = true;
-
-        // Start Recording
+        // Call JavaScript via the AvnAudioInterop class
         await avnAudioInterop.StartRecording(myObjectReference, deviceId, SampleRate, Channels, TimeSlice);
 
         Recording = true;
@@ -99,104 +101,142 @@ public partial class AudioRecorder : ComponentBase
     /// <returns></returns>
     public async Task StopRecording()
     {
+        // Call JavaScript via the AvnAudioInterop class
         await avnAudioInterop.StopRecording();
         Recording = false;
     }
 
+    /// <summary>
+    /// Called by JavaScript when the status has changed.
+    /// </summary>
+    /// <returns></returns>
     [JSInvokable]
     public async Task StatusChanged(string status)
     {
+        // Notify the consumer
         await AudioStatusChanged.InvokeAsync(status);
     }
 
+    /// <summary>
+    /// Called by JavaScript when recording has started
+    /// </summary>
+    /// <returns></returns>
     [JSInvokable]
     public async Task RecordingStartedCallback()
     {
+        // Notify the consumer
         await RecordingStarted.InvokeAsync();
     }
 
+    /// <summary>
+    /// Called by JavaScript when recording has stopped
+    /// </summary>
+    /// <returns></returns>
     [JSInvokable]
     public async Task RecordingStoppedCallback()
     {
+        // Notify the consumer
         await RecordingStopped.InvokeAsync();
     }
 
+    /// <summary>
+    /// Called by JavaScript when a new audio buffer is ready
+    /// </summary>
+    /// <param name="Base64EncodedByteArray">A Base64 encoded audio buffer</param>
+    /// <returns></returns>
     [JSInvokable]
     public async Task DataAvailable(string Base64EncodedByteArray)
     {
         // Data is recorded as WebM, a web standard based on Opus.
-        // Output data sample rate is 44800 even though the sample rate is specified otherwise.
-        // You can use FFMPEG to convert webm to wav like so:
-        //      ffmpeg -i "recorded.webm" -vn "recorded.wav"
-        // then you can convert the wav sample rate from 44800 like so:
-        //      ffmpeg -i recorded.wav -ar 16000 recorded16.wav
+        // Output data sample rate is 44800 even though the sample rate is
+        // specified otherwise.
 
-        //if (firstBuffer)
-        //{
-        //    firstBuffer = false;
-        //    The first 122 characters are the webm audio header
-        //}
+        // You can use FFMPEG to convert a webm file to a CD-quality wav file:
+        //      ffmpeg -i "recorded.webm" -ar 44100 -vn "recorded.wav"
 
         // Convert to byte array
         var data = Convert.FromBase64String(Base64EncodedByteArray);
-        var audiobuffer = new AudioBuffer();
-        audiobuffer.BufferString = Base64EncodedByteArray;
-        audiobuffer.Data = data;
 
-        // Notify the caller
+        // Create an audio buffer to pass to the consumer.
+        var audiobuffer = new AudioBuffer()
+        {
+            BufferString = Base64EncodedByteArray,
+            Data = data
+        };
+
+        // Notify the consumer
         await BufferRecorded.InvokeAsync(audiobuffer);
     }
 
+    /// <summary>
+    /// Called from JavaScript code when it discovers available audio devices
+    /// for both input and output
+    /// </summary>
+    /// <param name="devices"></param>
+    /// <returns></returns>
     [JSInvokable]
     public async Task AvailableAudioDevices(object[] devices)
     {
-        // Called by JavaScript when we get the list of devices
+        // Prepare local lists.
         var inputDevices = new List<BrowserMediaDevice>();
         var outputDevices = new List<BrowserMediaDevice>();
 
+        // Loop through the devices
         foreach (var device in devices)
         {
+            // Get the JSON for this device
             string deviceString = device.ToString();
+            
+            // Create a BrowserMediaDevice object from it.
             var dev = JsonSerializer.Deserialize<BrowserMediaDevice>(deviceString);
+            
             if (dev.kind == "audioinput")
             {
+                // This is an input device
                 if (dev.label.Trim() != "" && dev.deviceId.Trim() != "")
                 {
+                    // Sometimes we get blank labels and ids.
                     inputDevices.Add(dev);
                 }
             }
             else if (dev.kind == "audiooutput")
             {
+                // This is an output device
                 if (dev.label.Trim() != "" && dev.deviceId.Trim() != "")
                 {
+                    // Sometimes we get blank labels and ids.
                     outputDevices.Add(dev);
                 }
             }
         }
+
+        // Clear the lists that the consumer has passed in as parameters
         InputDevices.Clear();
         OutputDevices.Clear();
 
+        // Add the local BrowserMediaDevice objects
         if (inputDevices.Count > 0)
         {
             InputDevices.AddRange(inputDevices.OrderBy(o => o.label).ToList());
         }
-
         if (outputDevices.Count > 0)
         {
             OutputDevices.AddRange(outputDevices.OrderBy(o => o.label).ToList());
         }
-
+        
+        // Notify the consumer
         await AudioStatusChanged.InvokeAsync("Audio Devices Found");
-        await InvokeAsync(StateHasChanged);
 
     }
 
     /// <summary>
-    /// Enumerates the audio input and output devices, after which the InputDevices and OutputDevices lists will populate.
+    /// Enumerates the audio input and output devices, after which the 
+    /// InputDevices and OutputDevices lists will populate.
     /// </summary>
     /// <returns></returns>
     public async Task EnumerateDevices()
     {
+        // Call JavaScript via the AvnAudioInterop class
         await avnAudioInterop.EnumerateAudioDevices(myObjectReference);
     }
 
@@ -258,6 +298,7 @@ public partial class AudioRecorder : ComponentBase
 
     protected override void OnInitialized()
     {
+        // Grab a reference to our component
         myObjectReference = DotNetObjectReference.Create(this);
     }
 }

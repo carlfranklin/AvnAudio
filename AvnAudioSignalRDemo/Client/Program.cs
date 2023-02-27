@@ -8,5 +8,8 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+
+// Required to use AvnAudio
 builder.Services.AddScoped<AvnAudioInterop>();
+
 await builder.Build().RunAsync();

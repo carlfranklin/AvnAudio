@@ -1,21 +1,30 @@
+// MediaRecorder class required across methods.
 var avnAudioRecorder;
 
+// Stop Recording
 export function stopRecording() {
+    // Make sure we have a MediaRecorder object
     if (avnAudioRecorder == null) {
         return;
     }
+    // stop and clean up
     avnAudioRecorder.stop();
     avnAudioRecorder.dataavailable = null;
     avnAudioRecorder = null;
 }
 
+// Start recording
 export async function startRecording(dotNetObject, deviceId, sampleRate, channels, timeSlice) {
+
+    // Passed to getUserMedia
     const constraints = {
         audio: {
             deviceId: deviceId,
             channelCount: channels
         },
     };
+
+    // passed to MediaRecorder constructor
     const options = {
         mimeType: "audio/webm",
         audioBitsPerSecond: sampleRate,
@@ -25,19 +34,26 @@ export async function startRecording(dotNetObject, deviceId, sampleRate, channel
     // but there is still data to process
     var stopped = false;
 
+    // First we need to retrieve the device
     navigator.mediaDevices.getUserMedia(constraints)
         .then(function (stream) {
             let recorder = new MediaRecorder(stream, options);
             if (recorder == null) {
-                console.log("recorder is Null");
+                console.log("recorder is null");
                 return;
             }
+
+            // now we have a recorder.
+
+            // Handle the stop event
             recorder.addEventListener("stop", (e) => {
                 // We've stopped recording,
                 // but there is still data to process.
                 // Set this flag
                 stopped = true;
             });
+
+            // Handle the dataavailable event
             recorder.addEventListener('dataavailable', function (e) {
                 // we have a buffer!!
                 try {
@@ -46,10 +62,6 @@ export async function startRecording(dotNetObject, deviceId, sampleRate, channel
                     reader.onloadend = function () {
                         var base64String = btoa(String.fromCharCode.apply(null, new Uint8Array(reader.result)));
                         // Send the buffer up to the AvnAudio component
-                        //console.log("");
-                        //console.log("BUFFER:");
-                        //console.log(base64String);
-                        //console.log("");
                         dotNetObject.invokeMethodAsync("DataAvailable", base64String);
                         // If we've stopped, tell the component
                         if (stopped) {
@@ -63,8 +75,14 @@ export async function startRecording(dotNetObject, deviceId, sampleRate, channel
                 }
 
             });
+
+            // Set this global variable
             avnAudioRecorder = recorder;
+
+            // Start the recorder with the timeslice MS value
             recorder.start(timeSlice);
+
+            // Tell the component we've started
             dotNetObject.invokeMethodAsync("RecordingStartedCallback");
         });
 }
@@ -72,6 +90,7 @@ export async function startRecording(dotNetObject, deviceId, sampleRate, channel
 // enumerate audio devices
 export function enumerateAudioDevices(dotNetObject) {
 
+    // Ensure the browser supports AudioContext
     if (!window.AudioContext) {
         if (!window.webkitAudioContext) {
             dotNetObject.invokeMethodAsync("StatusChanged", "Your browser does not support AudioContext.");
@@ -79,11 +98,15 @@ export function enumerateAudioDevices(dotNetObject) {
         }
         window.AudioContext = window.webkitAudioContext;
     }
+
+    // Query the media devices
     if (window.AudioContext) {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            // Make sure we CAN
             dotNetObject.invokeMethodAsync("StatusChanged", "enumerateDevices() not supported.");
             return;
         }
+
         // try using getUserMedia, which doesn't always work
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
             .then(function (stream) {
@@ -95,15 +118,16 @@ export function enumerateAudioDevices(dotNetObject) {
                         }
                         // Call the .NET reference passing the array of devices
                         dotNetObject.invokeMethodAsync("AvailableAudioDevices", devices);
+                        return;
                     })
                     .catch(function (err) {
                         dotNetObject.invokeMethodAsync("StatusChanged", err.name + ": " + err.message);
-
+                        return;
                     });
             })
             .catch(function (err) {
                 dotNetObject.invokeMethodAsync("StatusChanged", err.name + ": " + err.message);
-                enumerateJitsiDevices();
+                return;
             });
 
         // also try going straight to enumerateDevices

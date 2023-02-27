@@ -1,5 +1,8 @@
 ﻿namespace AvnAudio;
 
+/// <summary>
+/// Returned from JavaScript for each device it finds.
+/// </summary>
 public class BrowserMediaDevice
 {
     public string deviceId { get; set; } = string.Empty;
