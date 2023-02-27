@@ -1,0 +1,141 @@
+﻿@page "/"
+@using System.Security.Cryptography;
+@inject HttpClient httpClient;
+
+<PageTitle>Index</PageTitle>
+
+<h1>Audio Devices</h1>
+
+<AudioRecorder @ref="audioRecorder"
+               SampleRate=@SampleRate
+               Channels=@Channels
+               TimeSlice=1000
+               BufferRecorded="AudioBufferRecorded"
+               RecordingStarted="RecordingStarted"
+               RecordingStopped="RecordingStopped"
+               InputDevices="AudioInputDevices"
+               AudioStatusChanged="AudioStatusChanged" />
+
+<button class="btn btn-primary" @onclick="EnumerateDevices">Enumerate Devices</button>
+
+<button disabled="@RecordButtonDisabled" class="btn btn-primary" @onclick="StartRecording">Start Recording</button>
+<button disabled="@StopRecordButtonDisabled" class="btn btn-primary" @onclick="StopRecording">Stop Recording</button>
+
+
+<p>@Status</p>
+
+<h5>Input Devices</h5>
+<select size="16" style="width:100%;" @onchange="InputDeviceSelected">
+    @foreach (var device in AudioInputDevices)
+    {
+        <option value="@device.deviceId">@device.label</option>
+    }
+</select>
+
+@code {
+    int Channels = 1;           // set to 2 to record in stereo
+    int SampleRate = 44100;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
+    AudioRecorder audioRecorder { get; set; }
+    List<BrowserMediaDevice> AudioInputDevices { get; set; } = new List<BrowserMediaDevice>();
+    string Status = string.Empty;
+    bool RecordButtonDisabled = true;
+    bool StopRecordButtonDisabled = true;
+    string SelectedInputDeviceId = null;
+    HubConnection hubConnection;
+    BufferPosition bufferPosition;
+    string fileName = string.Empty;
+    long bytesRecorded = 0;
+    string webmHeader = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var url = $"{httpClient.BaseAddress}processaudio";
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(url)
+            .Build();
+
+        await CheckConnection();
+    }
+
+    private async Task CheckConnection()
+    {
+        if (hubConnection.State != HubConnectionState.Connected)
+        {
+            await hubConnection.StartAsync();
+        }
+    }
+
+    async Task StopRecording()
+    {
+        bufferPosition = BufferPosition.Last;
+        await audioRecorder.StopRecording();
+        RecordButtonDisabled = false;
+        StopRecordButtonDisabled = true;
+    }
+
+    async Task AudioBufferRecorded(AudioBuffer buffer)
+    {
+        bytesRecorded += buffer.Data.Length;
+        Status = $"Recording. {bytesRecorded} bytes total.";
+        await CheckConnection();
+
+        // use ProcessAudioFileBuffer to upload buffers.
+        // The server will write each buffer to a WEBM file in the Files folder.
+        // After the last buffer has been sent, the server will convert
+        // the WEBM file to a WAV file.
+        //await hubConnection.SendAsync("ProcessAudioFileBuffer", fileName, buffer.BufferString, bufferPosition, SampleRate);
+        
+        // use ProcessAudioBuffer to upload buffers.
+        // The server will convert them on the fly to PCM
+        // And write them to a PCM file in the Files folder.
+        await hubConnection.SendAsync("ProcessAudioBuffer", buffer.BufferString, bufferPosition, SampleRate, Channels);
+        
+        if(bufferPosition == BufferPosition.First)
+            bufferPosition = BufferPosition.Middle;
+    }
+
+    void RecordingStarted()
+    {
+        // You can do something here to indicate recording started
+    }
+
+    void RecordingStopped()
+    {
+        // You can do something here to indicate recording stopped
+        Status = "Recording Stopped";
+    }
+
+    private string NewFileName()
+    {
+        var dt = DateTime.Now;
+        string filename = $"{dt.Year}-{dt.Month}-{dt.Day}-{dt.Hour}-{dt.Minute}-{dt.Second}.webm";
+        return filename;
+    }
+
+    async Task StartRecording()
+    {
+        bytesRecorded = 0;
+        fileName = NewFileName();
+        bufferPosition = BufferPosition.First;
+        await audioRecorder.StartRecording(SelectedInputDeviceId);
+        RecordButtonDisabled = true;
+        StopRecordButtonDisabled = false;
+    }
+
+    void InputDeviceSelected(ChangeEventArgs args)
+    {
+        SelectedInputDeviceId = args.Value.ToString();
+        RecordButtonDisabled = false;
+    }
+
+    async Task EnumerateDevices()
+    {
+        await audioRecorder.EnumerateDevices();
+    }
+
+    void AudioStatusChanged(string status)
+    {
+        Status = status;
+    }
+}

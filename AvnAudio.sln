@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33403.182
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvnAudio", "AvnAudio\AvnAudio.csproj", "{607973DF-11B2-42C5-9D3E-318D98B02660}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvnAudioWasmDemo", "AvnAudioWasmDemo\AvnAudioWasmDemo.csproj", "{94EF6230-1C28-4ED5-91CB-65BD9714ADB4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvnAudioSignalRDemo.Server", "AvnAudioSignalRDemo\Server\AvnAudioSignalRDemo.Server.csproj", "{603A6BD7-8CD9-4668-8081-B7B62B153B67}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvnAudioSignalRDemo.Client", "AvnAudioSignalRDemo\Client\AvnAudioSignalRDemo.Client.csproj", "{CA843440-5D5D-4398-9E89-D2AC1E2E281F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvnAudioSignalRDemo.Shared", "AvnAudioSignalRDemo\Shared\AvnAudioSignalRDemo.Shared.csproj", "{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{607973DF-11B2-42C5-9D3E-318D98B02660}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{607973DF-11B2-42C5-9D3E-318D98B02660}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{607973DF-11B2-42C5-9D3E-318D98B02660}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{607973DF-11B2-42C5-9D3E-318D98B02660}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94EF6230-1C28-4ED5-91CB-65BD9714ADB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94EF6230-1C28-4ED5-91CB-65BD9714ADB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94EF6230-1C28-4ED5-91CB-65BD9714ADB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94EF6230-1C28-4ED5-91CB-65BD9714ADB4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{603A6BD7-8CD9-4668-8081-B7B62B153B67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{603A6BD7-8CD9-4668-8081-B7B62B153B67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{603A6BD7-8CD9-4668-8081-B7B62B153B67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{603A6BD7-8CD9-4668-8081-B7B62B153B67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA843440-5D5D-4398-9E89-D2AC1E2E281F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA843440-5D5D-4398-9E89-D2AC1E2E281F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA843440-5D5D-4398-9E89-D2AC1E2E281F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA843440-5D5D-4398-9E89-D2AC1E2E281F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C1697830-97E6-4525-BAF3-7352DE606E9F}
+	EndGlobalSection
+EndGlobal
