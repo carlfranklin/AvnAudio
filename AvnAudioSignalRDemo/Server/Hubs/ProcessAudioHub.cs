@@ -27,13 +27,14 @@ public class ProcessAudioHub : Hub
     /// <param name="sampleRate">Sample rate for converting</param>
     /// <param name="channels">Channel count for converting</param>
     /// <returns></returns>
-    public async Task ProcessAudioBuffer(string bufferString, BufferPosition position, int sampleRate, int channels)
+    public async Task ProcessAudioBuffer(string bufferString, 
+        BufferPosition position, int sampleRate, int channels)
     {
         // Convert buffer to a byte array
         var data = Convert.FromBase64String(bufferString);
 
         // Uncomment the next three lines to process buffers one at a time on demand.
-        //var buffer = _recordingManager.ConvertWebMBufferToPCM(bufferBytes, sampleRate, channels, position);
+        //var buffer = _audioConverter.ConvertWebMBufferToPCM(data, sampleRate, channels, position);
         //Debug.WriteLine($"RECEIVED {buffer.Length} bytes");
         //return;
 
@@ -71,7 +72,8 @@ public class ProcessAudioHub : Hub
     /// <param name="position">First, Last, or Middle</param>
     /// <param name="sampleRate">Sample rate for converting</param>
     /// <returns></returns>
-    public async Task ProcessAudioFileBuffer(string fileName, string buffer, BufferPosition position, int sampleRate)
+    public async Task ProcessAudioFileBuffer(string fileName, string buffer, 
+        BufferPosition position, int sampleRate)
     {
         await Task.Delay(0);
 
@@ -88,14 +90,30 @@ public class ProcessAudioHub : Hub
                 File.Delete(localFileName);
         }
 
-        // Open the file
-        using (var stream = File.OpenWrite(localFileName))
+        int NumberOfRetries = 4;    // arbitrary
+
+        for (int i = 1; i <= NumberOfRetries; ++i)
         {
-            // seek to the end
-            stream.Seek(stream.Length, SeekOrigin.Begin);
-            // write the data
-            stream.Write(data, 0, data.Length);
+            try
+            {
+                // Open the file
+                using (var stream = File.OpenWrite(localFileName))
+                {
+                    // seek to the end
+                    stream.Position = stream.Length;
+                    // write the data
+                    stream.Write(data, 0, data.Length);
+                    stream.Flush();
+                }
+                // Success. 
+                break;
+            }
+            catch (IOException e) when (i <= NumberOfRetries)
+            {
+                Thread.Sleep(100);
+            }
         }
+
 
         // is this the last buffer?
         if (position == BufferPosition.Last)

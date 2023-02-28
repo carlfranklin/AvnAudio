@@ -34,13 +34,15 @@ public partial class AudioRecorder : ComponentBase
     /// A list of devices available for recording. Pass in a local list.
     /// </summary>
     [Parameter]
-    public List<BrowserMediaDevice> InputDevices { get; set; } = new List<BrowserMediaDevice>();
+    public List<BrowserMediaDevice> InputDevices { get; set; } 
+        = new List<BrowserMediaDevice>();
 
     /// <summary>
     /// A list of devices available for playing. Pass in a local list.
     /// </summary>
     [Parameter]
-    public List<BrowserMediaDevice> OutputDevices { get; set; } = new List<BrowserMediaDevice>();
+    public List<BrowserMediaDevice> OutputDevices { get; set; } 
+        = new List<BrowserMediaDevice>();
 
     /// <summary>
     /// Occurs when a buffer has been recorded.
@@ -49,7 +51,8 @@ public partial class AudioRecorder : ComponentBase
     public EventCallback<AudioBuffer> BufferRecorded { get; set; }
 
     /// <summary>
-    /// Number of samples per second. Bits per sample is hard-coded to 16. Default is 16000.
+    /// Number of samples per second. Bits per sample is hard-coded to 16. 
+    /// Default is 16000.
     /// </summary>
     [Parameter]
     public int SampleRate { get; set; } = 16000;
@@ -249,7 +252,9 @@ public partial class AudioRecorder : ComponentBase
     /// <param name="bitDepth"></param>
     /// <param name="sampleRate"></param>
     /// <param name="totalSampleCount"></param>
-    public void WriteWavHeader(Stream stream, bool isFloatingPoint, ushort channelCount, ushort bitDepth, int sampleRate, int totalSampleCount)
+    public void WriteWavHeader(Stream stream, bool isFloatingPoint, 
+        ushort channelCount, ushort bitDepth, int sampleRate, 
+        int totalSampleCount)
     {
         stream.Position = 0;
 

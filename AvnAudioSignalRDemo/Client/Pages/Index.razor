@@ -34,8 +34,8 @@
 
 @code {
     int Channels = 1;           // 1=mono, 2=stereo
-    int SampleRate = 44100;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
-    int TimeSlice = 1000;       // time in ms between each buffer
+    int SampleRate = 16000;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
+    int TimeSlice = 500;       // time in ms between each buffer
 
     // Reference to the component
     AudioRecorder audioRecorder { get; set; }
@@ -92,12 +92,12 @@
         // The server will write each buffer to a WEBM file in the Files folder.
         // After the last buffer has been sent, the server will convert
         // the WEBM file to a WAV file.
-        //await hubConnection.SendAsync("ProcessAudioFileBuffer", fileName, buffer.BufferString, bufferPosition, SampleRate);
+        await hubConnection.SendAsync("ProcessAudioFileBuffer", fileName, buffer.BufferString, bufferPosition, SampleRate);
         
         // use ProcessAudioBuffer to upload buffers.
         // The server will convert them on the fly to PCM
         // And write them to a PCM file in the Files folder.
-        await hubConnection.SendAsync("ProcessAudioBuffer", buffer.BufferString, bufferPosition, SampleRate, Channels);
+        //await hubConnection.SendAsync("ProcessAudioBuffer", buffer.BufferString, bufferPosition, SampleRate, Channels);
         
         // Make sure the position is now Middle
         if(bufferPosition == BufferPosition.First)

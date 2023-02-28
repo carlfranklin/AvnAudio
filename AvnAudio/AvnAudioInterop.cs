@@ -46,10 +46,12 @@ public class AvnAudioInterop : IAsyncDisposable
     /// <param name="channels">Number of channels. 1=mono. 2=stereo</param>
     /// <param name="timeSlice">Number of milliseconds between each buffer</param>
     /// <returns></returns>
-    public async ValueTask StartRecording(object caller, string deviceId, int sampleRate, int channels, int timeSlice)
+    public async ValueTask StartRecording(object caller, string deviceId, 
+        int sampleRate, int channels, int timeSlice)
     {
         var module = await moduleTask.Value;
-        await module.InvokeVoidAsync("startRecording", caller, deviceId, sampleRate, channels, timeSlice);
+        await module.InvokeVoidAsync("startRecording", caller, deviceId, 
+            sampleRate, channels, timeSlice);
     }
 
     /// <summary>

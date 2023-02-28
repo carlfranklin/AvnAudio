@@ -14,7 +14,8 @@ export function stopRecording() {
 }
 
 // Start recording
-export async function startRecording(dotNetObject, deviceId, sampleRate, channels, timeSlice) {
+export async function startRecording(dotNetObject, deviceId, sampleRate,
+    channels, timeSlice) {
 
     // Passed to getUserMedia
     const constraints = {

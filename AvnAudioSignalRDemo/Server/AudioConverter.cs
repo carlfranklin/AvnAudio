@@ -73,7 +73,8 @@ public class AudioConverter
     /// <param name="Channels">Number of channels for converting</param>
     /// <param name="position">First, last, or middle</param>
     /// <returns></returns>
-    public byte[] ConvertWebMBufferToPCM(byte[] buffer, int SampleRate, int Channels, BufferPosition position)
+    public byte[] ConvertWebMBufferToPCM(byte[] buffer, int SampleRate, 
+        int Channels, BufferPosition position)
     {
         // Save the Sample rate and channels
         this.SampleRate = SampleRate;
@@ -276,6 +277,7 @@ public class AudioConverter
         // Execute
         Process p = Process.Start(processStartInfo);
         p.WaitForExit();
+        p.StandardInput.BaseStream.Flush();
         p.StandardInput.WriteLine("q\n");
         p.Close();
 
