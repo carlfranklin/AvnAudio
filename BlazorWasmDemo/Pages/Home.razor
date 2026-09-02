@@ -1,0 +1,137 @@
+﻿@page "/"
+@inject IBlazorFileSaver BlazorFileSaver
+
+<PageTitle>Audio Recorder Wasm Demo</PageTitle>
+
+<h1>Audio Recorder</h1>
+
+<AudioRecorder @ref="audioRecorder"
+               SampleRate=@SampleRate
+               Channels=@Channels
+               TimeSlice=@TimeSlice
+               BufferRecorded="AudioBufferRecorded"
+               RecordingStarted="RecordingStarted"
+               RecordingStopped="RecordingStopped"
+               InputDevices="AudioInputDevices"
+               AudioStatusChanged="AudioStatusChanged" />
+
+<button class="btn btn-primary" @onclick="EnumerateDevices">Enumerate Devices</button>
+
+<button disabled="@RecordButtonDisabled" class="btn btn-primary" @onclick="StartRecording">Start Recording</button>
+<button disabled="@StopRecordButtonDisabled" class="btn btn-primary" @onclick="StopRecording">Stop Recording</button>
+
+
+<p>@Status</p>
+
+<h5>Input Devices</h5>
+<select size="16" style="width:100%;" @onchange="InputDeviceSelected">
+    @foreach (var device in AudioInputDevices)
+    {
+        <option value="@device.deviceId">@device.label</option>
+    }
+</select>
+
+@code {
+    // Change these values to play around with 
+    // audio settings
+    int Channels = 1;           // 1=mono, 2=stereo
+    int SampleRate = 44100;     // values: 6000, 8000, 11025, 16000, 22050, 32000, 44100, 48000
+    int TimeSlice = 1000;       // time in ms between each buffer
+
+    // Reference to the component
+    AudioRecorder? audioRecorder { get; set; }
+
+    // We need to have a local list of BrowserMediaDevice to provide as a parameter
+    List<BrowserMediaDevice> AudioInputDevices { get; set; } = new List<BrowserMediaDevice>();
+    
+    string Status = string.Empty;           // Displayed in the UI
+    bool RecordButtonDisabled = true;       // for enabling/disabling the record button
+    bool StopRecordButtonDisabled = true;   // for enabling/disabling the stop button
+    string? SelectedInputDeviceId = null;    // id of the selected recording device
+    string WebMFileName = string.Empty;      // Name of the .webm file to save to
+    Stream? WebMFileStream;                  // Stream for writing to the .webm file
+    long BytesRecorded = 0;                 // We keep track of total bytes recorded
+
+    // Stop button clicked
+    async Task StopRecording()
+    {
+        await audioRecorder!.StopRecording();
+
+        RecordButtonDisabled = false;
+        StopRecordButtonDisabled = true;
+    }
+
+    // Occurs when a new buffer arrives
+    void AudioBufferRecorded(AudioBuffer buffer)
+    {
+        if (WebMFileStream is { CanWrite: true })
+        {
+            // Write the data to the file
+            WebMFileStream.Write(buffer.Data, 0, buffer.Data.Length);
+            BytesRecorded += buffer.Data.Length;
+            // Update the status
+            Status = $"Received {buffer.Data.Length} bytes at {DateTime.Now.ToLongTimeString()}";
+        }
+    }
+
+    // Occurs when recording starts
+    void RecordingStarted()
+    {
+        // You can do something here to indicate recording
+    }
+
+    // Occurs when the recording stops
+    async Task RecordingStopped()
+    {
+        Status = "Recording Stopped";
+        // Close the file
+        WebMFileStream?.Close();
+        // read the data 
+        var bytes = File.ReadAllBytes(WebMFileName);
+        // save the file, and it downloads automatically.
+        await BlazorFileSaver.SaveAsBase64("Recorded.webm", Convert.ToBase64String(bytes), "audio/webm");
+    }
+
+    // The Record button was clicked
+    async Task StartRecording()
+    {
+        BytesRecorded = 0;  // initialize
+
+        // Create a temp file
+        WebMFileName = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\temp.webm";
+        if (File.Exists(WebMFileName))
+            File.Delete(WebMFileName);
+        
+        // Open it for writing
+        WebMFileStream = File.OpenWrite(WebMFileName);
+
+        // Tell the AudioRecorder component to start recording
+        await audioRecorder!.StartRecording(SelectedInputDeviceId);
+        
+        // Enable/disable buttons
+        RecordButtonDisabled = true;
+        StopRecordButtonDisabled = false;
+    }
+
+    // Occurs when the user selects an input device
+    void InputDeviceSelected(ChangeEventArgs args)
+    {
+        // Set the selected input device id
+        SelectedInputDeviceId = args.Value?.ToString();
+        // Enable the record button
+        RecordButtonDisabled = false;
+    }
+
+    // The user has clicked the Enumerate Devices button
+    async Task EnumerateDevices()
+    {
+        // tell the AudioRecorder component to enumerate devices
+        await audioRecorder!.EnumerateDevices();
+    }
+
+    // Occurs when the audio status has changed
+    void AudioStatusChanged(string status)
+    {
+        Status = status;
+    }
+}
