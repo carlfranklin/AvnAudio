@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.4.33403.182
+# Visual Studio Version 18
+VisualStudioVersion = 18.9.12120.119
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvnAudio", "AvnAudio\AvnAudio.csproj", "{607973DF-11B2-42C5-9D3E-318D98B02660}"
 EndProject
@@ -12,6 +12,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvnAudioSignalRDemo.Client", "AvnAudioSignalRDemo\Client\AvnAudioSignalRDemo.Client.csproj", "{CA843440-5D5D-4398-9E89-D2AC1E2E281F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvnAudioSignalRDemo.Shared", "AvnAudioSignalRDemo\Shared\AvnAudioSignalRDemo.Shared.csproj", "{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlazorServerSignalRDemo", "BlazorServerSignalRDemo\BlazorServerSignalRDemo.csproj", "{495E4458-41E5-447D-8E35-052A8E5205ED}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CF7F6CAD-EAD9-40AB-AC89-64B4EF951B14}.Release|Any CPU.Build.0 = Release|Any CPU
+		{495E4458-41E5-447D-8E35-052A8E5205ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{495E4458-41E5-447D-8E35-052A8E5205ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{495E4458-41E5-447D-8E35-052A8E5205ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{495E4458-41E5-447D-8E35-052A8E5205ED}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
