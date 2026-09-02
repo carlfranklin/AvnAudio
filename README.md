@@ -28,7 +28,7 @@ It's built with .NET 10 and works in both Blazor Wasm and Blazor Server apps. Th
 
 This is a standalone Blazor Wasm app (net10.0) that records audio and saves it to a local WebM file. It uses a package called [BlazorFileSaver](https://github.com/IvanJosipovic/BlazorFileSaver), which uses JavaScript to download the file when done.
 
-When you stop recording, the accumulated WebM (Opus) bytes are saved directly as `Recorded.webm` — no conversion is needed, since WebM is sufficient for playback.
+When you stop recording, the accumulated WebM (Opus) bytes are saved directly as `Recorded.webm` — no conversion is needed, since WebM is sufficient for playback. (The ffmpeg.wasm files remain in `wwwroot` for optional future use.)
 
 > NOTE: you must enumerate the input devices and pick one before you can record.
 
