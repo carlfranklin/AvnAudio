@@ -366,3 +366,4 @@ FodyWeavers.xsd
 
 # AI memory files (public repo — keep untracked)
 AI_*.md
+/BlazorWasmDemo/ffmpeg.exe
