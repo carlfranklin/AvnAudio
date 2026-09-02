@@ -31,6 +31,10 @@
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
     <!-- Required to use BlazorFileSaver -->
     <script src="_content/BlazorFileSaver/BlazorFileSaver.min.js"></script>
+    <!-- ffmpeg.wasm (UMD build). Exposes the global FFmpegWASM.FFmpeg.
+         The worker chunk 814.ffmpeg.js and the core files are served
+         from the same directory (wwwroot). -->
+    <script src="ffmpeg.js"></script>
 </body>
 
 </html>

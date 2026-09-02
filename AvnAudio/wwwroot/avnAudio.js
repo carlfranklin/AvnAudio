@@ -17,13 +17,18 @@ export function stopRecording() {
 export async function startRecording(dotNetObject, deviceId, sampleRate,
     channels, timeSlice) {
 
-    // Passed to getUserMedia
-    const constraints = {
-        audio: {
-            deviceId: deviceId,
-            channelCount: channels
-        },
+    // Passed to getUserMedia.
+    // Use an "exact" constraint so the browser is FORCED to open the
+    // selected device. A plain string is an "ideal" constraint and the
+    // browser may silently fall back to another device (e.g. a virtual
+    // cable), which is what produced the flat-line recordings.
+    const audioConstraints = {
+        channelCount: channels
     };
+    if (deviceId !== null && deviceId !== undefined && deviceId !== "") {
+        audioConstraints.deviceId = { exact: deviceId };
+    }
+    const constraints = { audio: audioConstraints };
 
     // passed to MediaRecorder constructor
     const options = {
@@ -85,6 +90,15 @@ export async function startRecording(dotNetObject, deviceId, sampleRate,
 
             // Tell the component we've started
             dotNetObject.invokeMethodAsync("RecordingStartedCallback");
+        })
+        .catch(function (err) {
+            // The "exact" constraint makes getUserMedia throw if the
+            // selected device can't be opened (OverconstrainedError,
+            // NotFoundError, NotAllowedError, ...). Surface it instead
+            // of failing silently.
+            console.error("[avnAudio] getUserMedia failed:", err.name, err.message);
+            dotNetObject.invokeMethodAsync("StatusChanged",
+                "Could not open the selected audio device: " + err.name + " - " + err.message);
         });
 }
 
@@ -108,37 +122,30 @@ export function enumerateAudioDevices(dotNetObject) {
             return;
         }
 
-        // try using getUserMedia, which doesn't always work
+        // Request permission via getUserMedia first (this is what unlocks
+        // real device labels in most browsers), then enumerate exactly once.
+        // If getUserMedia is denied, fall back to a direct enumerate so we
+        // still get the device ids (labels may be blank in that case).
+        //
+        // IMPORTANT: AvailableAudioDevices must be called exactly ONCE.
+        // Calling it twice re-renders the <select> and resets the user's
+        // selection to the first option, which silently discards their choice.
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
             .then(function (stream) {
-                navigator.mediaDevices.enumerateDevices({ audio: true, video: false })
-                    .then(function (devices) {
-                        if (devices == null || devices.length == 0) {
-                            dotNetObject.invokeMethodAsync("StatusChanged", "no devices found");
-                            return;
-                        }
-                        // Call the .NET reference passing the array of devices
-                        dotNetObject.invokeMethodAsync("AvailableAudioDevices", devices);
-                        return;
-                    })
-                    .catch(function (err) {
-                        dotNetObject.invokeMethodAsync("StatusChanged", err.name + ": " + err.message);
-                        return;
-                    });
+                // We only needed the permission prompt; release the tracks.
+                stream.getTracks().forEach(function (track) { track.stop(); });
+                return navigator.mediaDevices.enumerateDevices();
             })
-            .catch(function (err) {
-                dotNetObject.invokeMethodAsync("StatusChanged", err.name + ": " + err.message);
-                return;
-            });
-
-        // also try going straight to enumerateDevices
-        navigator.mediaDevices.enumerateDevices({ audio: true, video: false })
+            .catch(function () {
+                // Permission denied or getUserMedia unsupported: enumerate anyway.
+                return navigator.mediaDevices.enumerateDevices();
+            })
             .then(function (devices) {
                 if (devices == null || devices.length == 0) {
                     dotNetObject.invokeMethodAsync("StatusChanged", "no devices found");
                     return;
                 }
-                // Call the .NET reference passing the array of devices
+                // Call the .NET reference passing the array of devices (once).
                 dotNetObject.invokeMethodAsync("AvailableAudioDevices", devices);
             })
             .catch(function (err) {

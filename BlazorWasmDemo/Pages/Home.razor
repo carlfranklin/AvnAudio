@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject IBlazorFileSaver BlazorFileSaver
+@* @inject IJSRuntime JSRuntime *@  <!-- only needed for the (disabled) ffmpeg.wasm WAV conversion -->
 
 <PageTitle>Audio Recorder Wasm Demo</PageTitle>
 
@@ -48,8 +49,7 @@
     bool RecordButtonDisabled = true;       // for enabling/disabling the record button
     bool StopRecordButtonDisabled = true;   // for enabling/disabling the stop button
     string? SelectedInputDeviceId = null;    // id of the selected recording device
-    string WebMFileName = string.Empty;      // Name of the .webm file to save to
-    Stream? WebMFileStream;                  // Stream for writing to the .webm file
+    List<byte> WebMBytes = new List<byte>(); // Accumulated WebM (Opus) bytes
     long BytesRecorded = 0;                 // We keep track of total bytes recorded
 
     // Stop button clicked
@@ -64,14 +64,11 @@
     // Occurs when a new buffer arrives
     void AudioBufferRecorded(AudioBuffer buffer)
     {
-        if (WebMFileStream is { CanWrite: true })
-        {
-            // Write the data to the file
-            WebMFileStream.Write(buffer.Data, 0, buffer.Data.Length);
-            BytesRecorded += buffer.Data.Length;
-            // Update the status
-            Status = $"Received {buffer.Data.Length} bytes at {DateTime.Now.ToLongTimeString()}";
-        }
+        // Accumulate the WebM (Opus) bytes in memory.
+        WebMBytes.AddRange(buffer.Data);
+        BytesRecorded += buffer.Data.Length;
+        // Update the status
+        Status = $"Received {buffer.Data.Length} bytes at {DateTime.Now.ToLongTimeString()}";
     }
 
     // Occurs when recording starts
@@ -84,26 +81,49 @@
     async Task RecordingStopped()
     {
         Status = "Recording Stopped";
-        // Close the file
-        WebMFileStream?.Close();
-        // read the data 
-        var bytes = File.ReadAllBytes(WebMFileName);
-        // save the file, and it downloads automatically.
-        await BlazorFileSaver.SaveAsBase64("Recorded.webm", Convert.ToBase64String(bytes), "audio/webm");
+
+        // Save the recorded WebM (Opus) file directly, matching the
+        // Server demo. WebM is sufficient for playback.
+        try
+        {
+            var webmBase64 = Convert.ToBase64String(WebMBytes.ToArray());
+            await BlazorFileSaver.SaveAsBase64("Recorded.webm", webmBase64, "audio/webm");
+            Status = "Saved Recorded.webm";
+        }
+        catch (Exception ex)
+        {
+            Status = "Save failed: " + ex.Message;
+        }
+        finally
+        {
+            WebMBytes.Clear();
+        }
+
+        // WAV conversion via ffmpeg.wasm is no longer needed. WebM is
+        // sufficient (that's what the Server demo uses). Kept here for
+        // reference in case it's wanted again.
+        //
+        // Status = "Converting to WAV (loading ffmpeg.wasm on first run)...";
+        // try
+        // {
+        //     var webmBase64 = Convert.ToBase64String(WebMBytes.ToArray());
+        //     var module = await JSRuntime.InvokeAsync<IJSObjectReference>(
+        //         "import", "./ffmpegConvert.js");
+        //     var wavBase64 = await module.InvokeAsync<string>("convertWebmToWav", webmBase64);
+        //     await BlazorFileSaver.SaveAsBase64("Recorded.wav", wavBase64, "audio/wav");
+        //     Status = "Saved Recorded.wav";
+        // }
+        // catch (Exception ex)
+        // {
+        //     Status = "Conversion failed: " + ex.Message;
+        // }
     }
 
     // The Record button was clicked
     async Task StartRecording()
     {
         BytesRecorded = 0;  // initialize
-
-        // Create a temp file
-        WebMFileName = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\temp.webm";
-        if (File.Exists(WebMFileName))
-            File.Delete(WebMFileName);
-        
-        // Open it for writing
-        WebMFileStream = File.OpenWrite(WebMFileName);
+        WebMBytes.Clear();  // initialize
 
         // Tell the AudioRecorder component to start recording
         await audioRecorder!.StartRecording(SelectedInputDeviceId);
