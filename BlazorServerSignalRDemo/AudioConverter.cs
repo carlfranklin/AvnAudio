@@ -269,18 +269,20 @@ public class AudioConverter
         // Create a process to convert webm to wav
         var processStartInfo = new ProcessStartInfo()
         {
-            // ffmpeg arguments
-            Arguments = $" -i {inputFile} -ar {sampleRate} -vn {outputFile}",
+            // ffmpeg arguments (-y = overwrite output without prompting)
+            Arguments = $" -y -i {inputFile} -ar {sampleRate} -vn {outputFile}",
             FileName = "ffmpeg.exe",
             RedirectStandardInput = true, // Must be set to true
             UseShellExecute = false      // Must be set to false
         };
         // Execute
-        Process p = Process.Start(processStartInfo);
-        p.WaitForExit();
-        p.StandardInput.BaseStream.Flush();
-        p.StandardInput.WriteLine("q\n");
-        p.Close();
+        using (Process p = Process.Start(processStartInfo))
+        {
+            // Input comes from the file, not stdin — close stdin so ffmpeg
+            // sees EOF and doesn't wait for input.
+            p.StandardInput.Close();
+            p.WaitForExit();
+        }
 
         // Delete the input file
         File.Delete(inputFile);
